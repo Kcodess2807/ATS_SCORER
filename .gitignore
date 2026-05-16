@@ -1,0 +1,58 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+backend/logs/
+
+# ML Models & Data
+/ml model/
+*.pkl
+*.h5
+*.pt
+*.pth
+*.bin
+*.onnx
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Streamlit secrets
+frontend/.streamlit/secrets.toml
+!frontend/.streamlit/secrets.toml.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploaded files (temp)
+uploads/
+tmp/
+backend/logs
