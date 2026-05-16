@@ -14,15 +14,31 @@ try:
 except ImportError:
     pass
 
-SUPABASE_URL = os.getenv('SUPABASE_URL', '')
-SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY', '')
 
-OAUTH_REDIRECT_URL = os.getenv('AUTH_REDIRECT_URL', 'http://localhost:8501')
+def _secret(key: str, section: str = 'supabase') -> str:
+    """Read from env first, then fall back to st.secrets[section][key]."""
+    val = os.getenv(key, '')
+    if val:
+        return val
+    try:
+        return st.secrets[section][key]
+    except (KeyError, FileNotFoundError, AttributeError):
+        return ''
+
+
+SUPABASE_URL = _secret('SUPABASE_URL')
+SUPABASE_ANON_KEY = _secret('SUPABASE_ANON_KEY')
+
+OAUTH_REDIRECT_URL = (
+    os.getenv('AUTH_REDIRECT_URL')
+    or _secret('redirect_uri', 'google_oauth')
+    or 'http://localhost:8501'
+)
 
 
 def _missing_config() -> str | None:
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        return 'Supabase is not configured — set SUPABASE_URL and SUPABASE_ANON_KEY in .env'
+        return 'Supabase is not configured — set SUPABASE_URL and SUPABASE_ANON_KEY in .env or .streamlit/secrets.toml'
     return None
 
 
