@@ -1,8 +1,9 @@
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
+from backend.api.auth import get_current_user
 from backend.models.schemas import AnalysisResponse, ComponentScores, JDComparison, SkillValidationDetails
 from backend.utils.file_utils import (
     get_default_grammar_results,
@@ -24,7 +25,7 @@ async def analyze_resume(
     request: Request,
     resume: UploadFile = File(..., description='Resume file — PDF or DOCX, max 5 MB'),
     job_description: str = Form('', description='Job description text (optional)'),
-    user_id: str = Form('', description='Clerk user ID for saving history (optional)'),
+    user_id: str = Depends(get_current_user),
 ):
     warnings: List[str] = []
 
@@ -112,12 +113,11 @@ async def analyze_resume(
     )
 
 
-    if user_id and user_id.strip():
-        try:
-            from backend.database.mongodb import save_analysis
-            await save_analysis(user_id.strip(), filename, result)
-        except Exception as exc:
-            logger.warning(f'History save failed (non-blocking): {exc}')
+    try:
+        from backend.database.supabase_db import save_analysis
+        await save_analysis(user_id, filename, result)
+    except Exception as exc:
+        logger.warning(f'History save failed (non-blocking): {exc}')
 
     return response
 
@@ -131,15 +131,11 @@ async def health_check(request: Request):
     }
 
 @router.get('/history')
-async def get_history(x_user_id: str = Header(..., alias='X-User-ID')):
-    """
-    Retrieve all past analysis results for a user.
-    The user ID is sent via the X-User-ID header (set by the frontend).
-    """
-    from backend.database.mongodb import get_user_history
+async def get_history(user_id: str = Depends(get_current_user)):
+    """Return the signed-in user's past analyses (identity comes from the JWT)."""
+    from backend.database.supabase_db import get_user_history
     try:
-        history = await get_user_history(x_user_id)
-        return history
+        return await get_user_history(user_id)
     except Exception as exc:
         logger.error(f'History fetch failed: {exc}')
         raise HTTPException(status_code=500, detail=f'Could not load history: {exc}')
@@ -147,16 +143,13 @@ async def get_history(x_user_id: str = Header(..., alias='X-User-ID')):
 
 @router.delete('/history/{analysis_id}')
 async def delete_history_entry(
-
     analysis_id: str,
-    x_user_id: str = Header(..., alias='X-User-ID'),
+    user_id: str = Depends(get_current_user),
 ):
-    """
-    Delete a specific analysis from the user's history.
-    """
-    from backend.database.mongodb import delete_analysis
+    """Delete one analysis from the signed-in user's history."""
+    from backend.database.supabase_db import delete_analysis
     try:
-        success = await delete_analysis(analysis_id, x_user_id)
+        success = await delete_analysis(analysis_id, user_id)
         if not success:
             raise HTTPException(status_code=404, detail='Analysis not found or not owned by this user.')
         return {'status': 'deleted', 'id': analysis_id}
@@ -168,8 +161,10 @@ async def delete_history_entry(
     
 
 @router.post('/generate-pdf')
-async def generate_pdf(data: AnalysisResponse):
-
+async def generate_pdf(
+    data: AnalysisResponse,
+    user_id: str = Depends(get_current_user),
+):
     from backend.services.report_generator import generate_html_reports
     from backend.services.pdf_export import generate_combined_pdf
     from fastapi.responses import Response
@@ -193,17 +188,14 @@ async def generate_pdf(data: AnalysisResponse):
 @router.get('/history/{analysis_id}/pdf')
 async def generate_history_pdf(
     analysis_id: str,
-    x_user_id: str = Header(..., alias='X-User-ID')
+    user_id: str = Depends(get_current_user),
 ):
- 
-
-
-    from backend.database.mongodb import get_user_history
+    from backend.database.supabase_db import get_user_history
     from backend.services.report_generator import generate_html_reports
     from backend.services.pdf_export import generate_combined_pdf
     from fastapi.responses import Response
 
-    history = await get_user_history(x_user_id)
+    history = await get_user_history(user_id)
     analysis_data = next((item["analysis_result"] for item in history if item["id"] == analysis_id), None)
 
     if not analysis_data:

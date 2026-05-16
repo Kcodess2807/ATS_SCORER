@@ -1,9 +1,13 @@
 import os
 from pathlib import Path
 
+# Load .env from the project root (two levels up from this file) explicitly —
+# load_dotenv() with no args relies on caller-frame inspection that can fail
+# silently under uvicorn reload, leaving env vars unset.
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    _ENV_PATH = Path(__file__).resolve().parents[2] / '.env'
+    load_dotenv(_ENV_PATH)
 except ImportError:
     pass
 
@@ -13,9 +17,12 @@ APP_VERSION='1.0.0'
 APP_DESCRIPTION='analyse resumes against job description using nlp + ml'
 
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",   # Vite dev server (React)
-    "http://localhost:3000",   # Create React App fallback
-    "http://127.0.0.1:5173",
+    'https://ats-scorer-nu.vercel.app',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:3000',
+    'http://localhost:8000',
+    '*'
 ]  
 
 #file 
@@ -44,8 +51,10 @@ SCORE_WEIGHTS = {
 JD_KEYWORD_WEIGHT=0.6
 JD_SEMANTIC_WEIGHT=0.4
 
-MONGODB_URI=os.getenv('MONGODB_URI', '')
-MONGODB_DB=os.getenv('MONGODB_DB', 'resume_sts')
-GROQ_API_KEY=os.getenv('GROQ_API_KEY', '')
+SUPABASE_URL       = os.getenv('SUPABASE_URL', '')
+SUPABASE_KEY       = os.getenv('SUPABASE_KEY', '')          # service_role — DB writes (bypasses RLS)
+SUPABASE_ANON_KEY  = os.getenv('SUPABASE_ANON_KEY', '')     # public anon — frontend auth calls
+SUPABASE_JWT_SECRET= os.getenv('SUPABASE_JWT_SECRET', '')   # used by backend to verify access tokens
+GROQ_API_KEY       = os.getenv('GROQ_API_KEY', '')
 
 
